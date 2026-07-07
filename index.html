@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Cuenta Regresiva · 7 Ago 2026</title>
+<style>
+  :root{
+    --amber:#FFC72C;
+    --amber-dim:#4a3a12;
+    --glass-border: rgba(255,255,255,0.35);
+    --glass-bg: rgba(255,255,255,0.08);
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{
+    width:100%; height:100%;
+    overflow:hidden;
+    background:#000;
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    color:#fff;
+  }
+  #flagCanvas{
+    position:fixed; inset:0; width:100%; height:100%; z-index:0; display:block;
+  }
+  #particleCanvas{
+    position:fixed; inset:0; width:100%; height:100%; z-index:1; pointer-events:none; display:block;
+  }
+
+  .stage{
+    position:relative; z-index:2;
+    width:100%; height:100vh; height:100dvh;
+    display:flex; align-items:center; justify-content:center;
+    padding: clamp(10px,2vw,30px);
+    overflow-y:auto;
+  }
+
+  .panel{
+    width:100%;
+    max-width: 980px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid var(--glass-border);
+    border-radius: clamp(16px,2vw,28px);
+    padding: clamp(18px,3vw,42px);
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.05) inset,
+      0 25px 60px rgba(0,0,0,0.55),
+      0 0 40px rgba(255,199,44,0.08);
+    position:relative;
+    text-align:center;
+    animation: panelGlow 6s ease-in-out infinite;
+  }
+  @keyframes panelGlow{
+    0%,100%{ box-shadow:0 0 0 1px rgba(255,255,255,0.05) inset,0 25px 60px rgba(0,0,0,0.55),0 0 40px rgba(255,199,44,0.08);}
+    50%{ box-shadow:0 0 0 1px rgba(255,255,255,0.08) inset,0 25px 70px rgba(0,0,0,0.6),0 0 60px rgba(255,199,44,0.18);}
+  }
+  .panel::before{
+    content:'';
+    position:absolute; inset:-1px;
+    border-radius:inherit;
+    padding:1px;
+    background: linear-gradient(120deg, rgba(255,199,44,0.6), rgba(255,255,255,0.05) 30%, rgba(0,56,168,0.5) 60%, rgba(206,17,38,0.5));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events:none;
+    opacity:0.8;
+  }
+
+  .eyebrow{
+    font-size: clamp(10px,1.1vw,13px);
+    letter-spacing:0.35em;
+    text-transform:uppercase;
+    color: var(--amber);
+    margin-bottom:8px;
+  }
+  h1{
+    font-size: clamp(20px,3.2vw,34px);
+    font-weight:700;
+    margin-bottom: 4px;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+  }
+  .subrange{
+    font-size: clamp(11px,1.3vw,14px);
+    color:#5b9cff;
+    margin-bottom: clamp(14px,2vw,26px);
+    letter-spacing:0.03em;
+    font-weight:600;
+    text-shadow: 0 0 10px rgba(30,90,220,0.5);
+  }
+  .subrange b{ color: var(--amber); }
+
+  /* ---- info bar ---- */
+  .infobar{
+    display:flex; flex-wrap:wrap; justify-content:center; gap: clamp(10px,2vw,26px);
+    margin-bottom: clamp(16px,2.5vw,30px);
+    font-size: clamp(11px,1.1vw,13px);
+    color:#dbe8ff;
+  }
+  .infobar .card{
+    background: rgba(120,170,255,0.09);
+    border:1px solid rgba(150,190,255,0.28);
+    border-radius:10px;
+    padding: 8px 14px;
+    min-width:150px;
+  }
+  .infobar .card .lbl{ color: var(--amber); letter-spacing:0.1em; text-transform:uppercase; font-size:9px; margin-bottom:3px;}
+  .infobar .card .val{ font-weight:700; color:#3d7dff; text-shadow: 0 0 10px rgba(40,100,230,0.55); }
+
+  /* ---- flip clock ---- */
+  .clock{
+    display:flex; align-items:flex-start; justify-content:center;
+    gap: clamp(6px,1.4vw,18px);
+    flex-wrap:wrap;
+    margin-bottom: clamp(14px,2vw,26px);
+  }
+  .unit-group{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .digits-row{ display:flex; gap: clamp(3px,0.6vw,7px); }
+  .unit-lbl{
+    font-size: clamp(9px,1vw,11px);
+    letter-spacing:0.25em;
+    text-transform:uppercase;
+    color: var(--amber);
+  }
+  .colon{
+    align-self:center;
+    font-size: clamp(20px,3vw,34px);
+    color: rgba(255,255,255,0.5);
+    padding: 0 2px;
+    margin-top: clamp(10px,2vw,22px);
+  }
+
+  .flip{
+    position:relative;
+    width: clamp(38px,6.2vw,66px);
+    height: clamp(58px,9.4vw,100px);
+    perspective: 300px;
+  }
+  .flip .face{
+    position:absolute; inset:0;
+    border-radius:6px;
+    background: linear-gradient(180deg,#0c0c0c,#050505);
+    border:1px solid rgba(255,255,255,0.12);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: inset 0 0 12px rgba(0,0,0,0.6), 0 4px 14px rgba(0,0,0,0.5);
+    backface-visibility:hidden;
+  }
+  .flip svg{ width:70%; height:70%; }
+  .flip .front{ transform: rotateY(0deg); z-index:2; }
+  .flip .back{ transform: rotateY(180deg); z-index:1; }
+  .flip.flipping .front{ animation: flipFront 0.5s ease-in forwards; }
+  .flip.flipping .back{ animation: flipBack 0.5s ease-out forwards; }
+  @keyframes flipFront{ 0%{transform:rotateY(0deg);} 100%{transform:rotateY(-180deg);} }
+  @keyframes flipBack{ 0%{transform:rotateY(180deg);} 100%{transform:rotateY(0deg);} }
+
+  .flash{
+    position:absolute; inset:0; border-radius:6px;
+    background:#fff; opacity:0; pointer-events:none; z-index:3;
+  }
+  .flip.flipping .flash{ animation: flashPop 0.5s ease-out forwards; }
+  @keyframes flashPop{
+    0%{ opacity:0; }
+    15%{ opacity:0.85; }
+    100%{ opacity:0; }
+  }
+
+  .midline{
+    position:absolute; left:0; right:0; top:50%; height:1px;
+    background: rgba(0,0,0,0.6); z-index:4; transform: translateY(-0.5px);
+  }
+
+  /* ---- controls ---- */
+  .controls{
+    display:flex; justify-content:center; gap: clamp(8px,1.5vw,16px); flex-wrap:wrap;
+    margin-top: clamp(6px,1vw,10px);
+  }
+  .ctrl-btn{
+    display:flex; align-items:center; gap:8px;
+    background: rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.25);
+    color:#fff;
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: clamp(11px,1.1vw,13px);
+    letter-spacing:0.05em;
+    cursor:pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(6px);
+  }
+  .ctrl-btn:hover{ background: rgba(255,199,44,0.18); border-color: var(--amber); }
+  .ctrl-btn:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+  .ctrl-btn svg{ width:16px; height:16px; fill:currentColor; }
+
+  .status{
+    margin-top: 16px;
+    font-style: italic;
+    color: var(--amber);
+    font-size: clamp(13px,1.4vw,16px);
+    min-height: 22px;
+  }
+
+  @media (max-width: 480px){
+    .infobar .card{ min-width: 120px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="flagCanvas"></canvas>
+<canvas id="particleCanvas"></canvas>
+
+<div class="stage">
+  <div class="panel">
+    <div class="eyebrow">República de Colombia</div>
+    <h1>Cuenta regresiva a la posesión del presidente electo Abelardo de la Espriella</h1>
+    <div class="subrange">Del <b>7 jul 2026 · 08:00</b> al <b>7 ago 2026 · 08:00</b></div>
+
+    <div class="infobar">
+      <div class="card"><div class="lbl">Inicio</div><div class="val" id="startVal">—</div></div>
+      <div class="card"><div class="lbl">Fin</div><div class="val" id="endVal">—</div></div>
+      <div class="card"><div class="lbl">Hora actual</div><div class="val" id="nowVal">—</div></div>
+      <div class="card"><div class="lbl">Día</div><div class="val" id="dayVal">—</div></div>
+    </div>
+
+    <div class="clock" id="clock"></div>
+
+    <div class="status" id="statusMsg">Calculando…</div>
+
+    <div class="controls">
+      <button class="ctrl-btn" id="fullscreenBtn">⛶ Pantalla completa</button>
+      <button class="ctrl-btn" id="soundBtn">🔊 Sonido activado</button>
+      <button class="ctrl-btn" id="downloadBtn">⬇ Descargar página</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Copia intacta del HTML original, tomada ANTES de que el script
+   construya el reloj o rellene datos — evita duplicados al reabrir
+   el archivo descargado. */
+const PRISTINE_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+/* =========================================================
+   1. MOTOR GRÁFICO — Bandera de Colombia ondeando (canvas)
+   ========================================================= */
+const flagCanvas = document.getElementById('flagCanvas');
+const fctx = flagCanvas.getContext('2d');
+let W, H;
+
+function resizeFlag(){
+  W = flagCanvas.width = window.innerWidth;
+  H = flagCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeFlag);
+resizeFlag();
+
+// textura base de la bandera en un canvas offscreen (amarillo 50%, azul 25%, rojo 25%)
+const tex = document.createElement('canvas');
+tex.width = 300; tex.height = 200;
+const tctx = tex.getContext('2d');
+tctx.fillStyle = '#FFCD00'; tctx.fillRect(0,0,300,100);
+tctx.fillStyle = '#003893'; tctx.fillRect(0,100,300,50);
+tctx.fillStyle = '#CE1126'; tctx.fillRect(0,150,300,50);
+
+let t0 = performance.now();
+const cols = 90;
+
+function drawFlag(time){
+  fctx.clearRect(0,0,W,H);
+
+  // fondo detrás de la bandera (degradado nocturno)
+  const bg = fctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#05070c');
+  bg.addColorStop(1,'#0a0d16');
+  fctx.fillStyle = bg;
+  fctx.fillRect(0,0,W,H);
+
+  const t = time*0.0011;
+  const colW = W/cols + 1;
+
+  for(let i=0;i<cols;i++){
+    const x = i * (W/cols);
+    const nx = i/cols; // 0..1
+
+    // desplazamiento tipo tela: onda compuesta
+    const wave = Math.sin(nx*10 - t*2) * 22 * (0.4+nx*0.7)
+               + Math.sin(nx*4 + t*1.3) * 10;
+    const shade = Math.sin(nx*10 - t*2) * 0.18; // variación de brillo para dar volumen
+
+    const srcX = nx*tex.width;
+
+    fctx.save();
+    fctx.translate(x, H/2 + wave);
+    fctx.globalAlpha = 1;
+
+    // dibuja franja vertical de textura, con leve escala vertical dinámica para "flameo"
+    const stretch = 1 + Math.sin(nx*10 - t*2)*0.03;
+    fctx.drawImage(tex, srcX, 0, tex.width/cols+1, tex.height, -colW/2, -H*0.5*stretch, colW+1, H*stretch);
+
+    // sombreado de tela (oscurece/aclara según la onda -> sensación 3D)
+    fctx.fillStyle = shade > 0 ? `rgba(255,255,255,${shade*0.35})` : `rgba(0,0,0,${-shade*0.45})`;
+    fctx.fillRect(-colW/2, -H*0.5*stretch, colW+1, H*stretch);
+
+    fctx.restore();
+  }
+
+  // brillo dinámico tipo reflejo de luz recorriendo la tela
+  const glowX = (Math.sin(t*0.6)*0.5+0.5) * W;
+  const glow = fctx.createRadialGradient(glowX, H*0.35, 0, glowX, H*0.35, W*0.45);
+  glow.addColorStop(0, 'rgba(255,255,255,0.10)');
+  glow.addColorStop(1, 'rgba(255,255,255,0)');
+  fctx.fillStyle = glow;
+  fctx.fillRect(0,0,W,H);
+
+  // viñeta para foco central
+  const vg = fctx.createRadialGradient(W/2,H/2, H*0.2, W/2,H/2, H*0.9);
+  vg.addColorStop(0,'rgba(0,0,0,0)');
+  vg.addColorStop(1,'rgba(0,0,0,0.55)');
+  fctx.fillStyle = vg;
+  fctx.fillRect(0,0,W,H);
+
+  requestAnimationFrame(drawFlag);
+}
+requestAnimationFrame(drawFlag);
+
+/* =========================================================
+   Partículas de luz flotando
+   ========================================================= */
+const pCanvas = document.getElementById('particleCanvas');
+const pctx = pCanvas.getContext('2d');
+function resizeParticles(){ pCanvas.width = window.innerWidth; pCanvas.height = window.innerHeight; }
+window.addEventListener('resize', resizeParticles);
+resizeParticles();
+
+const particles = Array.from({length:55}, ()=>({
+  x: Math.random()*window.innerWidth,
+  y: Math.random()*window.innerHeight,
+  r: Math.random()*2+0.6,
+  vy: -(Math.random()*0.35+0.08),
+  vx: (Math.random()-0.5)*0.15,
+  a: Math.random()*0.6+0.15
+}));
+
+function drawParticles(){
+  pctx.clearRect(0,0,pCanvas.width,pCanvas.height);
+  particles.forEach(p=>{
+    p.x += p.vx; p.y += p.vy;
+    if(p.y < -10){ p.y = pCanvas.height+10; p.x = Math.random()*pCanvas.width; }
+    pctx.beginPath();
+    pctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    pctx.fillStyle = `rgba(255,220,150,${p.a})`;
+    pctx.shadowColor = 'rgba(255,199,44,0.8)';
+    pctx.shadowBlur = 6;
+    pctx.fill();
+  });
+  requestAnimationFrame(drawParticles);
+}
+requestAnimationFrame(drawParticles);
+
+/* =========================================================
+   2. DÍGITOS LED SIETE SEGMENTOS (SVG) + FLIP CLOCK
+   ========================================================= */
+const SEGMENTS = {
+  a:"8,2 32,2 29,6 11,6",
+  f:"6,4 10,8 10,32 6,34 3,31 4,7",
+  b:"34,4 37,7 36,31 34,34 30,32 30,8",
+  g:"8,33 32,33 35,36 32,39 8,39 5,36",
+  e:"6,38 10,40 10,64 6,66 3,63 4,41",
+  c:"34,38 36,41 36,63 34,66 30,64 30,40",
+  d:"8,65 32,65 35,68 32,72 8,72 5,68"
+};
+const DIGIT_MAP = {
+  '0':['a','b','c','d','e','f'],
+  '1':['b','c'],
+  '2':['a','b','g','e','d'],
+  '3':['a','b','g','c','d'],
+  '4':['f','g','b','c'],
+  '5':['a','f','g','c','d'],
+  '6':['a','f','g','e','c','d'],
+  '7':['a','b','c'],
+  '8':['a','b','c','d','e','f','g'],
+  '9':['a','b','c','d','f','g']
+};
+
+function digitSVG(d){
+  const on = DIGIT_MAP[d] || [];
+  let polys = '';
+  for(const key in SEGMENTS){
+    const lit = on.includes(key);
+    polys += `<polygon points="${SEGMENTS[key]}" fill="${lit ? 'url(#litGrad)' : '#181818'}" stroke="${lit?'#fff5':'#000'}" stroke-width="0.4"/>`;
+  }
+  return `<svg viewBox="0 0 40 74" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="litGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#fff3c4"/>
+        <stop offset="55%" stop-color="#FFC72C"/>
+        <stop offset="100%" stop-color="#e08e00"/>
+      </linearGradient>
+    </defs>
+    ${polys}
+  </svg>`;
+}
+
+function makeFlipUnit(){
+  const wrap = document.createElement('div');
+  wrap.className = 'flip';
+  wrap.innerHTML = `
+    <div class="face front">${digitSVG('0')}</div>
+    <div class="face back">${digitSVG('0')}</div>
+    <div class="midline"></div>
+    <div class="flash"></div>
+  `;
+  wrap._current = '0';
+  return wrap;
+}
+
+function setFlipDigit(el, newDigit){
+  if(el._current === newDigit) return;
+  const front = el.querySelector('.front');
+  const back = el.querySelector('.back');
+  back.innerHTML = digitSVG(newDigit);
+  el.classList.add('flipping');
+  el.addEventListener('animationend', function handler(e){
+    if(e.animationName !== 'flipFront') return;
+    front.innerHTML = digitSVG(newDigit);
+    back.innerHTML = digitSVG(newDigit);
+    el.classList.remove('flipping');
+    el._current = newDigit;
+    el.removeEventListener('animationend', handler);
+  });
+}
+
+const clockEl = document.getElementById('clock');
+const groups = [
+  {id:'d', label:'Días', digits:2},
+  {id:'h', label:'Horas', digits:2},
+  {id:'m', label:'Min', digits:2},
+  {id:'s', label:'Seg', digits:2}
+];
+const flipRefs = {};
+groups.forEach((g,idx)=>{
+  const gEl = document.createElement('div');
+  gEl.className = 'unit-group';
+  const row = document.createElement('div');
+  row.className = 'digits-row';
+  flipRefs[g.id] = [];
+  for(let i=0;i<g.digits;i++){
+    const f = makeFlipUnit();
+    row.appendChild(f);
+    flipRefs[g.id].push(f);
+  }
+  const lbl = document.createElement('div');
+  lbl.className = 'unit-lbl';
+  lbl.textContent = g.label;
+  gEl.appendChild(row);
+  gEl.appendChild(lbl);
+  clockEl.appendChild(gEl);
+  if(idx < groups.length-1){
+    const colon = document.createElement('div');
+    colon.className = 'colon';
+    colon.textContent = ':';
+    clockEl.appendChild(colon);
+  }
+});
+
+function updateGroup(id, value){
+  const str = String(value).padStart(2,'0');
+  flipRefs[id].forEach((el,i)=> setFlipDigit(el, str[i]));
+}
+
+/* =========================================================
+   3. INFORMACIÓN — fechas, reloj, día de la semana
+   ========================================================= */
+const startDate = new Date(2026, 6, 7, 8, 0, 0);  // 7 julio 2026 08:00
+const endDate   = new Date(2026, 7, 7, 8, 0, 0);  // 7 agosto 2026 08:00
+
+const fmtDate = new Intl.DateTimeFormat('es-CO', {
+  day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'
+});
+document.getElementById('startVal').textContent = fmtDate.format(startDate);
+document.getElementById('endVal').textContent = fmtDate.format(endDate);
+
+let soundOn = true;
+let finished = false;
+
+function tick(){
+  const now = new Date();
+
+  document.getElementById('nowVal').textContent = now.toLocaleTimeString('es-CO', {hour12:false});
+  document.getElementById('dayVal').textContent = now.toLocaleDateString('es-CO', {weekday:'long'});
+
+  let diff = endDate - now;
+  const statusMsg = document.getElementById('statusMsg');
+
+  if(diff <= 0){
+    updateGroup('d',0); updateGroup('h',0); updateGroup('m',0); updateGroup('s',0);
+    statusMsg.textContent = '✦ ¡El plazo se ha cumplido! ✦';
+    if(!finished){ finished = true; playCompletionSound(); }
+    return;
+  }
+
+  if(now < startDate){
+    statusMsg.textContent = 'Aún no ha comenzado el conteo';
+  } else {
+    statusMsg.textContent = 'En curso hacia el 7 de agosto de 2026';
+  }
+
+  const totalSeconds = Math.floor(diff/1000);
+  const days = Math.floor(totalSeconds/86400);
+  const hours = Math.floor((totalSeconds%86400)/3600);
+  const minutes = Math.floor((totalSeconds%3600)/60);
+  const seconds = totalSeconds%60;
+
+  updateGroup('d', Math.min(days,99));
+  updateGroup('h', hours);
+  updateGroup('m', minutes);
+  updateGroup('s', seconds);
+}
+tick();
+setInterval(tick, 1000);
+
+/* =========================================================
+   4. CONTROLES — pantalla completa, sonido, descarga
+   ========================================================= */
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+fullscreenBtn.addEventListener('click', ()=>{
+  if(!document.fullscreenElement){
+    document.documentElement.requestFullscreen?.().catch(()=>{});
+    fullscreenBtn.textContent = '⛶ Salir de pantalla completa';
+  } else {
+    document.exitFullscreen?.();
+    fullscreenBtn.textContent = '⛶ Pantalla completa';
+  }
+});
+document.addEventListener('fullscreenchange', ()=>{
+  fullscreenBtn.textContent = document.fullscreenElement ? '⛶ Salir de pantalla completa' : '⛶ Pantalla completa';
+});
+
+const soundBtn = document.getElementById('soundBtn');
+soundBtn.addEventListener('click', ()=>{
+  soundOn = !soundOn;
+  soundBtn.textContent = soundOn ? '🔊 Sonido activado' : '🔇 Sonido desactivado';
+});
+
+let audioCtx = null;
+function playCompletionSound(){
+  if(!soundOn) return;
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
+    notes.forEach((freq, i)=>{
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, audioCtx.currentTime + i*0.18);
+      gain.gain.exponentialRampToValueAtTime(0.25, audioCtx.currentTime + i*0.18 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + i*0.18 + 0.4);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(audioCtx.currentTime + i*0.18);
+      osc.stop(audioCtx.currentTime + i*0.18 + 0.42);
+    });
+  }catch(e){ /* audio no disponible */ }
+}
+
+document.getElementById('downloadBtn').addEventListener('click', ()=>{
+  const blob = new Blob([PRISTINE_HTML], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'cuenta_regresiva_colombia_7ago2026.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>
